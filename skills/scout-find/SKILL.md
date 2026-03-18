@@ -43,10 +43,12 @@ Determine mode from context:
 
 1. If `~/.scout/profile/preferences.md` exists, read it to inform search queries.
 2. Construct search queries from the user's description + profile preferences (if available). Use `WebSearch` to search major job boards.
-3. Present results as a numbered list: title, company, location, salary (if available).
-4. User selects which ones to save.
-5. For each selected result, fetch the full listing via URL mode.
-6. Deduplicate against existing files in `~/.scout/jobs/` by `source_url`.
+3. **Present results as a numbered list** — title, company, location, salary (if available). **STOP HERE and wait for user selection.** Do NOT save any jobs yet.
+4. User selects which ones to save (by number, "all", or a subset).
+5. **Deduplicate before saving:** Glob `~/.scout/jobs/*.md` and read existing files' `source_url` fields. Skip any result whose URL already exists.
+6. For each selected result, fetch the full listing via URL mode and save.
+
+> **IMPORTANT:** In search mode, you MUST present candidates and wait for user input before saving any job files. Automatically saving all search results without user selection is a violation of this workflow.
 
 ## Job ID Generation
 
@@ -66,6 +68,8 @@ Format: `YYYY-MM-DD-<company>-<title>`
 
 Save to `~/.scout/jobs/<job-id>.md`. ALL string values in frontmatter MUST be quoted.
 
+**Every field below is REQUIRED.** Use `null` for unknown values, `"unknown"` for unknown strings. Do not omit fields.
+
 ```yaml
 ---
 id: "2026-03-18-acme-senior-pm"
@@ -78,15 +82,15 @@ salary:
   currency: "USD"
   period: "annual"
   notes: "Plus equity and annual bonus"
-type: "full-time"
-seniority: "senior"
-application_method: "portal"
-application_url: "https://..."
-source_url: "https://..."
-ats_platform: "greenhouse"
+type: "full-time"                    # full-time | part-time | contract | internship
+seniority: "senior"                  # junior | mid | senior | staff | principal | lead | director | executive
+application_method: "portal"         # portal | email | linkedin-easy-apply | recruiter
+application_url: "https://..."       # Direct link to apply (ATS portal URL)
+source_url: "https://..."            # URL where the listing was found
+ats_platform: "greenhouse"           # greenhouse | lever | workday | icims | ashby | smartrecruiters | taleo | unknown
 date_found: "2026-03-18"
-date_posted: "2026-03-10"
-deadline: null
+date_posted: "2026-03-10"           # null if unknown
+deadline: null                       # null if no deadline
 status: "discovered"
 score: null
 recommendation: null
@@ -128,6 +132,15 @@ Determine from the listing:
 - LinkedIn Easy Apply → `"linkedin-easy-apply"`
 - Recruiter contact → `"recruiter"`
 - Default → `"portal"`
+
+## Deduplication
+
+Before saving ANY job file (in all modes), check for duplicates:
+
+1. Glob `~/.scout/jobs/*.md` to list existing job files.
+2. For each existing file, extract the `source_url` from YAML frontmatter.
+3. If the new job's source URL matches an existing file's `source_url`, skip it and inform the user: "Already saved: [title] at [company] (existing ID: [id])."
+4. Also check for near-duplicates: same company + same title slug = likely duplicate. Flag for user confirmation before saving.
 
 ## Append to History
 

@@ -32,9 +32,10 @@ Requires `~/.scout/profile/master-profile.md` and `~/.scout/profile/preferences.
 
 1. Scan `~/.scout/jobs/*.md` for files with `status: "discovered"`.
 2. If none found, inform the user.
-3. Process each job sequentially. After each, present the scorecard and pause for user review before proceeding.
-4. If evaluation partially fails for a job (e.g., WebSearch unavailable for reputation check), log the failure, score from available categories (recalculating weights proportionally from remaining categories), and continue to the next job.
-5. At the end, present a summary: N vetted, scores, recommendations.
+3. **Small batch (4 or fewer jobs):** Process all jobs, present all scorecards together, then show the summary table. No pause between individual jobs — pausing for each job in a small batch creates unnecessary friction.
+4. **Large batch (5+ jobs):** Process each job sequentially. After each scorecard, pause and ask: "Continue to the next job?" This prevents overwhelming the user with a wall of scorecards.
+5. If evaluation partially fails for a job (e.g., WebSearch unavailable for reputation check), log the failure, score from available categories (recalculating weights proportionally from remaining categories), and continue to the next job.
+6. At the end, present a summary table: rank, company, role, score, grade, recommendation. Sort by score descending.
 
 Resumable — re-invoking picks up jobs still in `"discovered"` status.
 
@@ -99,6 +100,8 @@ Present to the user:
 
 **Recommendation:** Strong match / Worth applying / Stretch / Skip
 
+**Apply here:** [application_url or source_url from the job file]
+
 **Talking Points for Application:**
 - [Skill/experience that aligns strongly]
 - [Skill/experience that aligns strongly]
@@ -127,6 +130,12 @@ After vetting each job:
 
 ## Completion
 
-After vetting, inform the user:
+After vetting a single job, inform the user:
 
-> "[Job Title] at [Company]: [SCORE]/100 ([RECOMMENDATION]). Run `/scout-apply <job-id>` to generate tailored application materials."
+> "[Job Title] at [Company]: [SCORE]/100 ([RECOMMENDATION]).
+> Apply here: [application_url or source_url]
+> Run `/scout-apply <job-id>` to generate tailored application materials."
+
+After batch vetting, present the summary table (see Batch Mode step 6), then:
+
+> "Run `/scout-apply <job-id>` to generate tailored materials for any of these."

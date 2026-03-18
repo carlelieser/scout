@@ -34,6 +34,16 @@ Only `scout-track` can set these statuses:
 
 Other skills set: `discovered` (scout-find), `vetted` (scout-vet), `materials-ready` (scout-apply).
 
+> **IMPORTANT:** Other scout skills (especially `scout-apply`) must NOT update job status to any stage owned by `scout-track`. When a user confirms they applied (e.g., "I applied!", "Applied!", "Done", "Submitted") during a `scout-apply` session, the agent must invoke `/scout-track` to handle the transition rather than directly editing the job file's status field. This ensures the update flow prompts for metadata (application method, date, notes) and appends to history consistently.
+
+### Implicit Status Updates
+
+When `scout-track` is invoked as a result of a casual user confirmation (e.g., "I applied!" rather than `/scout-track update`), it is acceptable to streamline the prompts:
+- If the context makes the job ID obvious (e.g., materials were just generated for a specific job), use that job ID without asking.
+- If the new status is obvious from context (e.g., "I applied" = `applied`), set it without asking.
+- Still prompt for any non-obvious metadata: application method, notes.
+- If the user provides no additional detail and seems eager to move on, use reasonable defaults: `application_method` from the job file, `date_applied` as today, no notes.
+
 ## Mode: Dashboard (default)
 
 When invoked with no arguments or `/scout-track`, show the dashboard:

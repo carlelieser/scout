@@ -37,10 +37,23 @@ If vetting results exist (the job file has `score` and talking points from a pri
 
 ### Step 2: Honesty Check
 
-Compare the job's requirements against the user's actual skills and experience. Categorize each requirement as:
-- **Strong match** — user clearly has this skill/experience
-- **Partial match** — user has related experience
-- **Gap** — user does not have this skill
+Compare the job's requirements against the user's actual skills and experience. Present the honesty check as two tables — one for required skills, one for nice-to-haves:
+
+```
+| Requirement | Match |
+|-------------|-------|
+| [Requirement from listing] | **Strong** — [evidence from profile] |
+| [Requirement from listing] | **Partial** — [related experience] |
+| [Requirement from listing] | **Gap** — [what's missing] |
+```
+
+```
+| Nice-to-have | Match |
+|--------------|-------|
+| [Nice-to-have from listing] | **Strong** — [evidence] |
+```
+
+Use exactly these three labels: **Strong**, **Partial**, **Gap**. Always include evidence from the profile.
 
 Rules:
 - Only include keywords/skills the user's profile actually supports
@@ -124,18 +137,80 @@ If the job listing includes specific application questions (e.g., "Why do you wa
 
 ### Step 7: Export to PDF
 
-Convert the tailored CV to PDF:
+Convert the tailored CV to PDF. Try methods in order until one succeeds.
 
-**Primary method — Pandoc:**
+**Method 1 — Pandoc with LaTeX:**
 ```bash
 pandoc ~/.scout/applications/<job-id>/cv.md -o ~/.scout/applications/<job-id>/cv.pdf --pdf-engine=xelatex -V geometry:margin=1in -V mainfont="Helvetica Neue" -V monofont="Menlo"
 ```
+Check for xelatex first: `which xelatex`. If not found, skip to Method 2.
 
-**Fallback — if Pandoc is not available**, use Playwright to print-to-PDF:
-1. Render the Markdown as HTML
-2. Use Playwright to open the HTML and print to PDF
+**Method 2 — Pandoc HTML + Playwright print-to-PDF:**
 
-If neither method works, inform the user and skip PDF generation.
+1. Convert Markdown to standalone HTML:
+   ```bash
+   pandoc ~/.scout/applications/<job-id>/cv.md -o /tmp/scout-cv-<job-id>.html --standalone --metadata title="<Name> - CV"
+   ```
+2. Replace the Pandoc HTML body content into a styled HTML template (see CV HTML Template below).
+3. Find the Playwright installation path:
+   ```bash
+   node -e "console.log(require.resolve('playwright').replace(/\/index\.js$/, ''))"
+   ```
+   If this fails, try the global path: `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g').toString().trim(), 'playwright'))"`.
+4. Write a CommonJS (`.cjs`) script — NOT ESM — to print the PDF:
+   ```javascript
+   const { chromium } = require('<resolved-playwright-path>');
+   (async () => {
+     const browser = await chromium.launch();
+     const page = await browser.newPage();
+     await page.goto('file:///tmp/scout-cv-<job-id>.html', { waitUntil: 'networkidle' });
+     await page.pdf({
+       path: process.env.HOME + '/.scout/applications/<job-id>/cv.pdf',
+       format: 'Letter',
+       printBackground: true,
+       margin: { top: '0', bottom: '0', left: '0', right: '0' }
+     });
+     await browser.close();
+     console.log('PDF generated successfully');
+   })();
+   ```
+5. Run: `node /tmp/scout-generate-cv-<job-id>.cjs`
+
+**Method 3 — Pandoc not available:** If `which pandoc` fails, build the full HTML manually from the Markdown content (converting headers, bullets, paragraphs to HTML tags), apply the CV HTML Template styling, and use Playwright as in Method 2 steps 3-5.
+
+If no method works (no Pandoc AND no Playwright), inform the user and skip PDF generation.
+
+#### CV HTML Template
+
+Use this template for Playwright PDF generation. Replace the `<!-- CV CONTENT -->` placeholder with the HTML-rendered CV content:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>[Name] - CV</title>
+<style>
+  @page { margin: 0.75in 0.85in; size: letter; }
+  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #1a1a1a; max-width: 100%; margin: 0; padding: 0; }
+  h1 { font-size: 20pt; margin: 0 0 2pt 0; font-weight: 700; }
+  h2 { font-size: 12pt; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1.5px solid #1a1a1a; padding-bottom: 3pt; margin: 14pt 0 8pt 0; }
+  h3 { font-size: 11pt; margin: 10pt 0 2pt 0; font-weight: 600; }
+  p, li { margin: 2pt 0; }
+  ul { padding-left: 18pt; margin: 2pt 0; }
+  .contact { font-size: 9.5pt; color: #444; margin-bottom: 10pt; }
+  a { color: #1a1a1a; text-decoration: none; }
+</style>
+</head>
+<body>
+<!-- CV CONTENT -->
+</body>
+</html>
+```
+
+#### Reusing PDF Scripts Across Jobs
+
+If you already generated a PDF in the current session using Method 2 or 3, reuse the same Playwright script and HTML template — only change the input HTML path, output PDF path, and CV content. Do NOT recreate the styled HTML template or Playwright script from scratch each time.
 
 ### Step 8: Update Job Status
 
@@ -163,4 +238,10 @@ After generating materials, inform the user:
 > - [email-draft.md — if generated]
 > - [qa.md — if generated]
 >
+> Apply here: [application_url or source_url from the job file]
+>
 > Review the materials, then run `/scout-track update <job-id>` to mark as applied after you submit."
+
+### Status Transition Rule
+
+When the user confirms they applied (e.g., "I applied!", "Applied!", "Done", "Submitted"), you MUST invoke `/scout-track` to handle the status transition. Do NOT update the job file's `status` to `"applied"` directly — `scout-track` is the sole owner of post-`materials-ready` transitions and will prompt for additional metadata (application method, date, notes).

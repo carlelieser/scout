@@ -1,6 +1,6 @@
 # Scout
 
-Six AI agent skills for end-to-end job hunting — from discovering jobs to tracking offers.
+A job search copilot. Find, vet, apply, prep, and track — from listing to offer.
 
 ## Skills
 
@@ -16,7 +16,7 @@ Six AI agent skills for end-to-end job hunting — from discovering jobs to trac
 ## Install
 
 ```bash
-npx skills add <owner>/<repo> -y
+npx skills add carlelieser/scout -y
 ```
 
 ## Quick Start

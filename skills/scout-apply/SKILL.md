@@ -145,90 +145,131 @@ If the job listing includes specific application questions (e.g., "Why do you wa
 
 ### Step 7: Export to PDF
 
-Convert the tailored CV to PDF. Try methods in order until one succeeds.
+Convert the tailored CV to PDF using a dedicated CLI tool. Every method below is a **single shell command** — do NOT generate scripts, write intermediate files, or dynamically resolve module paths.
 
-#### Path Safety (mandatory for all methods)
+#### Path Safety
 
-Before generating any PDF:
-1. **Validate the job ID** matches `^[a-z0-9-]+$` — reject any job ID containing `..`, `/`, `\`, spaces, or shell metacharacters (`;`, `|`, `&`, `$`, `` ` ``, `(`, `)`, `!`, `>`, `<`).
-2. **All file paths** (input markdown, intermediate HTML, output PDF, Playwright script) MUST be constructed using only validated job IDs. Never interpolate raw user input into file paths or shell commands.
-3. **Intermediate files** go in `/tmp/` with the prefix `scout-cv-` followed by the validated job ID. Clean up intermediate files (`/tmp/scout-cv-*`) after successful PDF generation.
-4. **Output path** MUST resolve to within `~/.scout/applications/` — verify before writing.
+Before running any command, validate that the job ID matches `^[a-z0-9-]+$`. Reject any job ID containing `..`, `/`, `\`, spaces, or shell metacharacters.
 
-**Method 1 — Pandoc with LaTeX:**
+#### Method 1 — md-to-pdf (preferred)
+
+Check: `which md-to-pdf || npx --yes md-to-pdf --version`
+
+The generated `cv.md` file must include PDF options in its YAML frontmatter. When writing the CV in Step 3, prepend this frontmatter block:
+
+```yaml
+---
+pdf_options:
+  format: Letter
+  printBackground: true
+  margin:
+    top: 0.75in
+    bottom: 0.75in
+    left: 0.85in
+    right: 0.85in
+stylesheet:
+  - ~/.scout/templates/cv-style.css
+---
+```
+
+Then generate the PDF:
+```bash
+npx md-to-pdf ~/.scout/applications/<job-id>/cv.md
+```
+
+This outputs `cv.pdf` alongside `cv.md` in the same directory. One command, no intermediate files.
+
+If `~/.scout/templates/cv-style.css` does not exist, create it from the CV Stylesheet below before running the command.
+
+#### Method 2 — pandoc + typst
+
+Check: `which pandoc && which typst`
+
+```bash
+pandoc ~/.scout/applications/<job-id>/cv.md -o ~/.scout/applications/<job-id>/cv.pdf --pdf-engine=typst -V mainfont="Inter" -V margin-top=0.75in -V margin-bottom=0.75in -V margin-left=0.85in -V margin-right=0.85in
+```
+
+#### Method 3 — pandoc + weasyprint
+
+Check: `which pandoc && which weasyprint`
+
+```bash
+pandoc ~/.scout/applications/<job-id>/cv.md -o ~/.scout/applications/<job-id>/cv.pdf --pdf-engine=weasyprint --css=~/.scout/templates/cv-style.css
+```
+
+#### Method 4 — pandoc + LaTeX (if available)
+
+Check: `which pandoc && which xelatex`
+
 ```bash
 pandoc ~/.scout/applications/<job-id>/cv.md -o ~/.scout/applications/<job-id>/cv.pdf --pdf-engine=xelatex -V geometry:margin=1in -V mainfont="Helvetica Neue" -V monofont="Menlo"
 ```
-Check for xelatex first: `which xelatex`. If not found, skip to Method 2.
 
-**Method 2 — Pandoc HTML + Playwright print-to-PDF:**
+#### Tool Not Found
 
-1. Convert Markdown to standalone HTML:
-   ```bash
-   pandoc ~/.scout/applications/<job-id>/cv.md -o /tmp/scout-cv-<job-id>.html --standalone --metadata title="<Name> - CV"
-   ```
-2. Replace the Pandoc HTML body content into a styled HTML template (see CV HTML Template below).
-3. Find the Playwright installation path:
-   ```bash
-   node -e "console.log(require.resolve('playwright').replace(/\/index\.js$/, ''))"
-   ```
-   If this fails, try the global path: `node -e "console.log(require('path').join(require('child_process').execSync('npm root -g').toString().trim(), 'playwright'))"`.
-4. **Validate the resolved Playwright path** exists and is within a `node_modules` directory before using it in `require()`.
-5. Write a CommonJS (`.cjs`) script — NOT ESM — to print the PDF. Use hardcoded, validated paths only — never interpolate variables from job listing content:
-   ```javascript
-   const { chromium } = require('<resolved-playwright-path>');
-   (async () => {
-     const browser = await chromium.launch();
-     const page = await browser.newPage();
-     await page.goto('file:///tmp/scout-cv-<validated-job-id>.html', { waitUntil: 'networkidle' });
-     await page.pdf({
-       path: process.env.HOME + '/.scout/applications/<validated-job-id>/cv.pdf',
-       format: 'Letter',
-       printBackground: true,
-       margin: { top: '0', bottom: '0', left: '0', right: '0' }
-     });
-     await browser.close();
-     console.log('PDF generated successfully');
-   })();
-   ```
-6. Run: `node /tmp/scout-cv-<validated-job-id>.cjs`
-7. **Clean up** intermediate files: remove `/tmp/scout-cv-<job-id>.html` and `/tmp/scout-cv-<job-id>.cjs` after successful PDF generation.
+If no method is available, tell the user:
 
-**Method 3 — Pandoc not available:** If `which pandoc` fails, build the full HTML manually from the Markdown content (converting headers, bullets, paragraphs to HTML tags), apply the CV HTML Template styling, and use Playwright as in Method 2 steps 3-7.
+> "No PDF tool found. Install one with: `npm i -g md-to-pdf` (recommended), `brew install typst`, or `pip install weasyprint`. Then re-run `/scout-apply`."
 
-If no method works (no Pandoc AND no Playwright), inform the user and skip PDF generation.
+Do NOT fall back to generating scripts, writing HTML files, or launching browsers programmatically. The PDF step is a single CLI command or it doesn't happen.
 
-#### CV HTML Template
+#### CV Stylesheet
 
-Use this template for Playwright PDF generation. Replace the `<!-- CV CONTENT -->` placeholder with the HTML-rendered CV content:
+If `~/.scout/templates/cv-style.css` does not exist, create it with:
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<title>[Name] - CV</title>
-<style>
-  @page { margin: 0.75in 0.85in; size: letter; }
-  body { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; font-size: 11pt; line-height: 1.45; color: #1a1a1a; max-width: 100%; margin: 0; padding: 0; }
-  h1 { font-size: 20pt; margin: 0 0 2pt 0; font-weight: 700; }
-  h2 { font-size: 12pt; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1.5px solid #1a1a1a; padding-bottom: 3pt; margin: 14pt 0 8pt 0; }
-  h3 { font-size: 11pt; margin: 10pt 0 2pt 0; font-weight: 600; }
-  p, li { margin: 2pt 0; }
-  ul { padding-left: 18pt; margin: 2pt 0; }
-  .contact { font-size: 9.5pt; color: #444; margin-bottom: 10pt; }
-  a { color: #1a1a1a; text-decoration: none; }
-</style>
-</head>
-<body>
-<!-- CV CONTENT -->
-</body>
-</html>
+```css
+@page {
+  size: letter;
+  margin: 0.75in 0.85in;
+}
+
+body {
+  font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 11pt;
+  line-height: 1.45;
+  color: #1a1a1a;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  font-size: 20pt;
+  margin: 0 0 2pt 0;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 12pt;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 1.5px solid #1a1a1a;
+  padding-bottom: 3pt;
+  margin: 14pt 0 8pt 0;
+}
+
+h3 {
+  font-size: 11pt;
+  margin: 10pt 0 2pt 0;
+  font-weight: 600;
+}
+
+p, li {
+  margin: 2pt 0;
+}
+
+ul {
+  padding-left: 18pt;
+  margin: 2pt 0;
+}
+
+a {
+  color: #1a1a1a;
+  text-decoration: none;
+}
 ```
 
-#### Reusing PDF Scripts Across Jobs
-
-If you already generated a PDF in the current session using Method 2 or 3, reuse the same Playwright script and HTML template — only change the input HTML path, output PDF path, and CV content. Do NOT recreate the styled HTML template or Playwright script from scratch each time.
+The user can customize this file to change fonts, spacing, or colors. All future PDFs will pick up the changes automatically.
 
 ### Step 8: Update Job Status
 
@@ -244,7 +285,9 @@ Do NOT set `status: "applied"`. The user must explicitly confirm submission via 
 
 ## User Templates
 
-If `~/.scout/templates/cv-template.md` exists, use it as the structural template for the CV (section order, formatting preferences). If `~/.scout/templates/cover-letter-template.md` exists, use it for cover letter tone and structure.
+- `~/.scout/templates/cv-style.css` — PDF styling (fonts, margins, colors). Created automatically on first run if missing. User can edit to customize.
+- `~/.scout/templates/cv-template.md` — If present, use as the structural template for the CV (section order, formatting preferences).
+- `~/.scout/templates/cover-letter-template.md` — If present, use for cover letter tone and structure.
 
 ## Completion
 

@@ -76,13 +76,29 @@ Generated CVs follow strict ATS rules:
 - Both acronyms and expanded forms (e.g., "Machine Learning (ML)")
 - Keyword density limits to avoid spam detection
 - ASCII-safe encoding
-- PDF export via Pandoc
+- PDF export via `md-to-pdf`, Pandoc + Typst, or Pandoc + WeasyPrint
 
 ## Prerequisites
 
 - A supported AI agent ([Claude Code](https://claude.ai/download), Cursor, Cline, Codex, etc.)
-- [Playwright](https://playwright.dev/) — for fetching JS-rendered job listings
-- [Pandoc](https://pandoc.org/) (optional) — for PDF export. Falls back to Playwright print-to-PDF.
+- A PDF tool (one of the following, in order of preference):
+  - [`md-to-pdf`](https://github.com/simonhaenisch/md-to-pdf) — `npm i -g md-to-pdf` (recommended, single command)
+  - [Pandoc](https://pandoc.org/) + [Typst](https://typst.app/) — `brew install pandoc typst`
+  - [Pandoc](https://pandoc.org/) + [WeasyPrint](https://weasyprint.org/) — `brew install pandoc && pip install weasyprint`
+  - [Pandoc](https://pandoc.org/) + LaTeX — `brew install pandoc && brew install --cask mactex` (heaviest option)
+
+## Security
+
+Scout processes untrusted external content (job listings, web search results) and generates files. The skills include the following security measures:
+
+- **Content boundary isolation** — All untrusted external content is wrapped in `<UNTRUSTED_EXTERNAL_CONTENT>` markers that instruct the agent to treat it as data only, preventing indirect prompt injection from crafted job listings
+- **Input validation** — Job IDs are validated against `^[a-z0-9][a-z0-9-]*[a-z0-9]$` before use in file paths or shell commands. Path traversal sequences (`..`, `/`, `\`) are rejected
+- **URL validation** — URLs are validated as HTTPS-only with public hostnames before fetching (SSRF prevention)
+- **Shell safety** — All shell commands use double-quoted paths with pre-validated inputs. No dynamic script generation or code execution
+- **LaTeX sandboxing** — When LaTeX is used for PDF generation (last-resort fallback), `--sandbox` is passed to prevent `\write18` command execution
+- **No fabrication** — Honesty checks prevent the agent from adding skills or experience the user doesn't have
+
+Security audits are run by [Gen Agent Trust Hub](https://www.gendigital.com/), [Socket](https://socket.dev/), and [Snyk](https://snyk.io/) via [skills.sh](https://skills.sh/carlelieser/scout).
 
 ## Compatible Agents
 

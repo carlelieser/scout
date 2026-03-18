@@ -2,6 +2,12 @@
 
 A job search copilot. Find, vet, apply, prep, and track — from listing to offer.
 
+## Install
+
+```bash
+npx skills add carlelieser/scout -y
+```
+
 ## Skills
 
 | Skill | Command | What it does |
@@ -12,12 +18,6 @@ A job search copilot. Find, vet, apply, prep, and track — from listing to offe
 | **scout-apply** | `/scout-apply` | Generate ATS-compliant tailored CVs, cover letters, and PDFs |
 | **scout-prep** | `/scout-prep` | Interview prep — company research, practice questions, debriefs |
 | **scout-track** | `/scout-track` | Pipeline management, follow-ups, and search analytics |
-
-## Install
-
-```bash
-npx skills add carlelieser/scout -y
-```
 
 ## Quick Start
 

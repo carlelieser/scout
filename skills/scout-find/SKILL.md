@@ -7,6 +7,8 @@ description: "Use when discovering job listings from URLs, pasted text, or web s
 
 Discovers and normalizes job listings from any source, saving them to `~/.scout/jobs/`.
 
+> **Scope:** This skill is for DISCOVERING NEW jobs. If the user wants to view existing saved jobs, check pipeline status, or review what they already have, direct them to `/scout-track` instead.
+
 ## Data Directory
 
 Job files are saved to `~/.scout/jobs/`. Create the directory if it doesn't exist.
@@ -17,6 +19,7 @@ Determine mode from context:
 - **User provides a URL** → URL mode
 - **User pastes job description text** → pasted text mode
 - **User describes what they're looking for** (e.g., "senior PM roles in fintech") → search mode
+- **No input provided** (bare `/scout-find`) → If `~/.scout/profile/preferences.md` exists, go directly to search mode using the profile preferences. Do NOT ask the user what mode they want or what they're looking for — the profile already has that information. If no profile exists, ask them to describe what they're looking for.
 
 ## URL Mode
 
@@ -42,8 +45,13 @@ Determine mode from context:
 
 ## Search Mode
 
-1. If `~/.scout/profile/preferences.md` exists, read it to inform search queries.
-2. Construct search queries from the user's description + profile preferences (if available). Use `WebSearch` to search major job boards.
+1. **Always read `~/.scout/profile/preferences.md` first** if it exists. Use target roles, industries, skills, salary range, and remote preferences to construct search queries. Do NOT ask the user to describe what they're looking for when a profile already exists — the profile IS the description. If the user provides additional criteria, combine them with the profile.
+2. **Run 3-5 targeted WebSearch queries** to cover different angles. For example, if the user targets "Senior Full-Stack Developer" roles in "AI/ML" and "SaaS" that are "fully remote" at "$180K+":
+   - `"senior full stack engineer" remote $180k+ 2026 hiring` (broad)
+   - `site:jobs.ashbyhq.com OR site:jobs.lever.co senior full stack remote` (ATS-specific)
+   - `"staff engineer" OR "founding engineer" remote AI startup 2026` (adjacent titles)
+   - `senior full stack TypeScript React Node.js remote job` (tech-stack-specific)
+   Run queries in parallel when possible. Filter out staffing agencies (Toptal, Turing, Lemon.io, Proxify, Andela) from results.
 3. **Present results as a numbered list** — title, company, location, salary (if available). **STOP HERE and wait for user selection.** Do NOT save any jobs yet.
 4. User selects which ones to save (by number, "all", or a subset).
 5. **Deduplicate before saving:** Glob `~/.scout/jobs/*.md` and read existing files' `source_url` fields. Skip any result whose URL already exists.

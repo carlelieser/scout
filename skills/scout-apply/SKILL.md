@@ -76,9 +76,10 @@ Use exactly these three labels: **Strong**, **Partial**, **Gap**. Always include
 
 Rules:
 - Only include keywords/skills the user's profile actually supports
-- Never fabricate experience or skills
-- If the job requires skills the user lacks, these become "stretch" items — do not include them in the CV as if the user has them
+- **Never fabricate or stretch experience.** If the user built a settings page, do not describe it as "a no-code platform." If they used an API, do not claim they "designed the system." Match the exact scope of what they did. When in doubt, ask the user rather than guessing.
+- If the job requires skills the user lacks, these become "stretch" items — do not include them in the CV as if the user has them. Do not reframe adjacent experience to sound like it matches a requirement it doesn't actually meet.
 - If more than 50% of required skills are gaps, warn the user this may be a stretch application
+- When presenting the honesty check, **explicitly ask the user** if any of the matches seem wrong or if they have better examples for any requirement. The user knows their own experience better than you do.
 
 ### Step 3: Generate Tailored CV
 
@@ -137,8 +138,14 @@ If generating, create `~/.scout/applications/<job-id>/cover-letter.md`:
 - Opening paragraph: why this specific role at this specific company
 - Body: 2-3 most relevant achievements mapped to the job requirements
 - Closing: enthusiasm + call to action
-- Tone: professional but not generic. Reference specific things about the company.
 - Length: under 400 words
+
+**Voice and tone (mandatory):**
+- Write like a real person, not a language model. Vary sentence length dramatically — mix short punchy sentences with longer ones. Use fragments. Use contractions. Start sentences with "And" or "But."
+- NO corporate filler: avoid "I'm excited to," "I'm writing to express my interest," "I would welcome the opportunity," "I am confident that," "leverage my skills," "passionate about." These phrases immediately signal AI-generated content.
+- Lead with what's genuinely interesting about the role or company — not generic enthusiasm. Be specific: reference actual products, funding, tech decisions, team structure.
+- Include personal voice: opinions, self-awareness, candid observations. A human writing a cover letter has a personality — show it.
+- Avoid parallel structure in consecutive sentences (AI tells: "I did X. I built Y. I led Z."). Break the pattern with asides, parentheticals, or different sentence structures.
 
 ### Step 5: Generate Email Draft (conditional)
 
@@ -149,10 +156,11 @@ If the job's `application_method` is `"email"`, create `~/.scout/applications/<j
 
 ### Step 6: Generate Application Answers (conditional)
 
-If the job listing includes specific application questions (e.g., "Why do you want to work here?", "Describe a time you led a team"), create `~/.scout/applications/<job-id>/qa.md`:
+If the job listing includes specific application questions (e.g., "Why do you want to work here?", "Describe a time you led a team"), or if the user shares a screenshot of application form questions, create `~/.scout/applications/<job-id>/qa.md`:
 - Each question as a heading
 - Tailored answer drawing from the user's profile and experience
 - Use STAR format for behavioral questions
+- Apply the same natural voice and anti-AI-voice rules as cover letters — these answers will be read by humans and must not sound generated
 
 ### Step 7: Export to PDF
 
@@ -184,7 +192,7 @@ pdf_options:
     left: 0.85in
     right: 0.85in
 stylesheet:
-  - ~/.scout/templates/cv-style.css
+  - /absolute/path/to/.scout/templates/cv-style.css
 ---
 ```
 
@@ -194,6 +202,8 @@ npx md-to-pdf "$HOME/.scout/applications/<validated-job-id>/cv.md"
 ```
 
 This outputs `cv.pdf` alongside `cv.md` in the same directory. One command, no intermediate files.
+
+> **IMPORTANT:** The `stylesheet` path in frontmatter MUST be an absolute path (e.g., `/Users/username/.scout/templates/cv-style.css`). `md-to-pdf` does NOT expand `~` — using `~/.scout/...` will cause a "file not found" error. Resolve `$HOME` to the absolute path before writing the frontmatter.
 
 If `~/.scout/templates/cv-style.css` does not exist, create it from the CV Stylesheet below before running the command.
 
@@ -301,13 +311,24 @@ a {
 
 The user can customize this file to change fonts, spacing, or colors. All future PDFs will pick up the changes automatically.
 
-### Step 8: Update Job Status
+### Step 8: Export Cover Letter to RTF (conditional)
+
+If a cover letter was generated and `pandoc` is available, also export it as RTF for application portals that require it:
+
+```bash
+pandoc "$HOME/.scout/applications/<validated-job-id>/cover-letter.md" \
+  -o "$HOME/.scout/applications/<validated-job-id>/cover-letter.rtf"
+```
+
+If pandoc is not available, skip RTF generation — the markdown file is the source of truth.
+
+### Step 9: Update Job Status
 
 Update the job file's frontmatter: set `status: "materials-ready"` and `date_materials_generated: "YYYY-MM-DD"`.
 
 Do NOT set `status: "applied"`. The user must explicitly confirm submission via `/scout-track update`.
 
-### Step 9: Append to History
+### Step 10: Append to History
 
 ```
 - YYYY-MM-DD HH:MM | scout-apply | materials-ready | <job-id> | "CV + [cover letter] + [email] generated"

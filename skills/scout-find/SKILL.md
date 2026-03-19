@@ -20,6 +20,7 @@ Determine mode from context:
 - **User pastes job description text** → pasted text mode
 - **User describes what they're looking for** (e.g., "senior PM roles in fintech") → search mode
 - **No input provided** (bare `/scout-find`) → If `~/.scout/profile/preferences.md` exists, go directly to search mode using the profile preferences. Do NOT ask the user what mode they want or what they're looking for — the profile already has that information. If no profile exists, ask them to describe what they're looking for.
+- **Re-invocation** → Each `/scout-find` invocation runs a fresh search. Do NOT re-show results from a previous run. If the user runs `/scout-find` again, they want new results — run new queries.
 
 ## URL Mode
 
@@ -173,16 +174,20 @@ Before storing `application_url`, `source_url`, or any URL in `source_urls` in t
 
 ## Authentication
 
-Job board search uses `agent-browser`'s auto-connect to piggyback on the user's running Chrome session — no credential storage, no login automation. Install it if needed: `npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser`.
+Job board search uses `agent-browser` to piggyback on the user's running Chrome session — no credential storage, no login automation. Install it if needed: `npx skills add https://github.com/vercel-labs/agent-browser --skill agent-browser`.
 
-**Auth state capture:**
-- Before searching a job board, attempt `agent-browser --auto-connect state save ~/.scout/auth/<site>.json` to capture auth state.
-- If Chrome isn't running or connection fails, search that board unauthenticated (public results only).
-- Per-site auth state files: `~/.scout/auth/linkedin.json`, `~/.scout/auth/indeed.json`, `~/.scout/auth/wellfound.json`.
+**Persistent profile (preferred):**
+Use `agent-browser --profile ~/.scout/browser-profile` to maintain a persistent browser profile. On first use, the user logs into LinkedIn/Indeed/Wellfound in the headed browser. Subsequent runs reuse the saved session cookies automatically. Always use `--headed` when the user needs to log in so they can see the browser window.
 
-**Stale auth handling:**
-- If the response looks like a login page, auth wall, or CAPTCHA rather than search results, discard the saved state file and fall back to unauthenticated search.
-- Inform the user: "[Site] session expired — searching with public results only. Open Chrome and log into [site], then re-run to get full results."
+**Connecting to running Chrome (alternative):**
+If the user wants to use their existing Chrome session, they must launch Chrome with `--remote-debugging-port=9222`. Then use `agent-browser --cdp 9222` to connect. Note: Chrome must be fully quit and relaunched with this flag — it won't work if Chrome is already running without it.
+
+**Auth status detection:**
+- If a search results page looks like a login page, auth wall, or CAPTCHA rather than job listings, the session has expired.
+- Inform the user: "[Site] session expired — searching with public results only. Run `/scout-find` with `--headed` to re-authenticate."
+- Fall back to unauthenticated search for that source.
+
+> **IMPORTANT:** When searching job boards with `agent-browser`, you MUST actually use the `agent-browser` skill. Do NOT substitute WebFetch or WebSearch for job board searches — those tools cannot access authenticated sessions or JS-rendered content. `agent-browser` is the tool for LinkedIn, Indeed, and Wellfound. WebFetch/WebSearch are only for the WebSearch and HN Who's Hiring sources.
 
 ## Content Trust and Boundary Isolation
 

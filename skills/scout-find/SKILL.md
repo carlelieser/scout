@@ -21,7 +21,11 @@ Determine mode from context:
 ## URL Mode
 
 1. **Validate the URL** before fetching: it MUST use `https://` protocol (reject `http://`, `file://`, `javascript:`, `data:`, and any other scheme). The hostname must be a public domain — reject `localhost`, `127.0.0.1`, `0.0.0.0`, `::1`, `169.254.*`, `10.*`, `172.16-31.*`, `192.168.*`, and any private/reserved IP ranges (SSRF prevention).
-2. Use the `browser-automation` skill to fetch the validated URL with Playwright. Navigate to the URL in a headless browser, wait for the main content to render, and extract the full text content of the page. This is necessary because most job boards render content via JavaScript.
+2. **Try `WebFetch` first** to retrieve the page content. This is faster and has no external dependency. If the result is empty or clearly missing the job description (JS-rendered pages return minimal HTML), fall back to `agent-browser`:
+   ```bash
+   agent-browser open "<validated-url>" && agent-browser wait --load networkidle && agent-browser snapshot
+   ```
+   Extract the text content from the snapshot. This is necessary because many job boards render content via JavaScript.
 3. Detect the ATS platform from the URL:
    - `boards.greenhouse.io` or `job-boards.greenhouse.io` → `"greenhouse"`
    - `jobs.lever.co` → `"lever"`

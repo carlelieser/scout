@@ -15,34 +15,9 @@ To get pipeline state: read all files in `~/.scout/jobs/`, extract the `status` 
 
 ## Pipeline Stages
 
-```
-discovered → vetted → materials-ready → applied → interviewing → offer → accepted/rejected
-                                                                      ↘ withdrawn
-                                    (any stage) → archived
-```
-
-### Status Ownership
-
-Only `scout-track` can set these statuses:
-- `applied` — user confirms they submitted the application
-- `interviewing` — user has an interview scheduled or completed
-- `offer` — user received an offer
-- `accepted` — user accepted an offer
-- `rejected` — user was rejected (at any stage)
-- `withdrawn` — user withdrew their application
-- `archived` — user wants to remove from active pipeline
-
-Other skills set: `discovered` (scout-find), `vetted` (scout-vet), `materials-ready` (scout-apply).
+See [reference/pipeline-stages.md](reference/pipeline-stages.md) for stage definitions and ownership rules.
 
 > **IMPORTANT:** Other scout skills (especially `scout-apply`) must NOT update job status to any stage owned by `scout-track`. When a user confirms they applied (e.g., "I applied!", "Applied!", "Done", "Submitted") during a `scout-apply` session, the agent must invoke `/scout-track` to handle the transition rather than directly editing the job file's status field. This ensures the update flow prompts for metadata (application method, date, notes) and appends to history consistently.
-
-### Implicit Status Updates
-
-When `scout-track` is invoked as a result of a casual user confirmation (e.g., "I applied!" rather than `/scout-track update`), it is acceptable to streamline the prompts:
-- If the context makes the job ID obvious (e.g., materials were just generated for a specific job), use that job ID without asking.
-- If the new status is obvious from context (e.g., "I applied" = `applied`), set it without asking.
-- Still prompt for any non-obvious metadata: application method, notes.
-- If the user provides no additional detail and seems eager to move on, use reasonable defaults: `application_method` from the job file, `date_applied` as today, no notes.
 
 ## Mode: Dashboard (default)
 
@@ -61,7 +36,7 @@ When invoked with no arguments or `/scout-track`, show the dashboard:
    - Archived: 8
    ```
 3. **Action items:**
-   - Jobs needing follow-up (see Follow-up Cadence below)
+   - Jobs needing follow-up (apply cadence rules from [reference/follow-up-cadence.md](reference/follow-up-cadence.md))
    - Stale listings: `discovered` or `vetted` jobs where `date_posted` is 30+ days ago
    - Approaching deadlines: jobs with a `deadline` within 5 days
 4. **Recent activity:** Last 10 entries from `~/.scout/history.md`
@@ -71,59 +46,21 @@ When invoked with no arguments or `/scout-track`, show the dashboard:
 
 1. If user specifies a job ID, use it. Otherwise, present jobs grouped by stage for selection.
 2. Show current status and ask for the new status.
-3. Based on the new status, prompt for additional information:
-
-| New Status | Prompt For |
-|------------|-----------|
-| `applied` | Application method used, date submitted, any notes |
-| `interviewing` | Interview date, interviewer name/title, interview type (phone/video/onsite), follow-up date |
-| `offer` | Offer details (salary, equity, benefits, deadline to respond) |
-| `accepted` | Start date, final package details |
-| `rejected` | Rejection stage (screening/phone/onsite/final), reason if given |
-| `withdrawn` | Reason for withdrawing |
-| `archived` | Reason for archiving |
-
+3. Prompt for additional information based on new status — see [reference/status-prompts.md](reference/status-prompts.md).
 4. Update the job file's frontmatter with new status and any additional fields.
-5. Append to `~/.scout/history.md`.
+5. Append to `~/.scout/history.md` using the format in [../shared/history-format.md](../shared/history-format.md).
 
 ## Mode: Contacts (`/scout-track contacts`)
 
 1. If user specifies a job ID, show/edit contacts for that job. Otherwise, ask which job.
-2. Add or update contacts in the job file's `contacts` frontmatter array:
-
-```yaml
-contacts:
-  - name: "Jane Smith"
-    role: "Engineering Manager"
-    linkedin: "linkedin.com/in/janesmith"
-    relationship: "referral"
-    last_interaction: "2026-03-15"
-    notes: "Met at conference, offered to refer"
-```
-
+2. Add or update contacts in the job file's `contacts` frontmatter array — see [reference/contacts-schema.md](reference/contacts-schema.md) for format.
 3. Track who referred you for thank-you follow-ups.
 
 ## Mode: Follow-ups (`/scout-track followups`)
 
-Scan all active jobs and apply stage-aware follow-up cadence:
-
-| Stage | Follow-up Rule |
-|-------|---------------|
-| `applied` | Follow up after 7-10 business days if no response |
-| `interviewing` | Send thank-you within 24 hours. Follow up after 5 business days if no response. |
-| `offer` | Respond within stated deadline (default 3-5 business days) |
-| `materials-ready` | Remind to submit after 3 days |
-
-For each job, check:
-- Does it have a `follow_up_date` in the past? → due for follow-up
-- Does the stage imply a follow-up based on the rules above? → calculate from `date_applied`, interview dates, etc.
-
-Present as a list:
-```
-Follow-ups Due:
-- [Job Title] at [Company] (applied 2026-03-08) — follow up on application (10 days)
-- [Job Title] at [Company] (interviewed 2026-03-15) — send thank-you note (overdue!)
-```
+1. Scan all active jobs.
+2. Apply cadence rules from [reference/follow-up-cadence.md](reference/follow-up-cadence.md).
+3. Present a list of jobs due for follow-up action.
 
 ## Mode: History (`/scout-track history`)
 
@@ -151,7 +88,4 @@ Present as a formatted report.
 
 ## Append to History
 
-All status updates append to `~/.scout/history.md`:
-```
-- YYYY-MM-DD HH:MM | scout-track | <new-status> | <job-id> | "<notes>"
-```
+All status updates append to `~/.scout/history.md` using the format in [../shared/history-format.md](../shared/history-format.md).
